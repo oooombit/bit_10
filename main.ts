@@ -532,34 +532,40 @@ namespace hicbit {
     */
     //% weight=97 blockId=hicbit_setCodedmotor block="Set |port %port| motor|angle %angle|and |speed %speed|"
     //% angle.min=-360 angle.max=360
-    //% speed.min=0 speed.max=255
     export function hicbit_setCodedmotor(port: hicbit_Coded_motor_Port,angle: number,speed:Coded_motor_speed) {
-        //校验
-        let Check_Digit: number = 0;
-        let Turn: number = 0;    
-        let buf = pins.createBuffer(13);
+        let angle_H: number = 0;    //角度高8位
+        let angle_L: number = 0;    //角度低8位
+        let turn: number = 0;
+        let buf = pins.createBuffer(8);
 
-        if (angle > 360 || angle < 0)
-            angle = 0;
-
-        Turn = (angle > 0 ? 1 : 2);                 //方向
-
-        buf[0] = 0xFE;
-        buf[1] = 0xFE;
-        buf[2] = 0x0A;      
-        buf[3] = hicbit_control.getsncode();
-        buf[4] = 0xC1;                      
-        buf[5] = (angle & 0xFF00) >> 8;                       
-        buf[6] = (angle & 0xFF);
-        buf[7] = Turn;
-        buf[8] = port;
-        buf[9] = 0x00;
-        buf[10] = speed;
-        buf[11] = 0;            //0：绝对位置 1：相对位置
-        for (let i = 0; i < 12; i++)
-            Check_Digit = Check_Digit + buf[i];
-        buf[12] = Check_Digit & 0xFF;       //校验
+        if (angle < 0)
+        {
+            turn = 1;           //反转
+            angle *= -1;
+        }
+        else
+            turn = 0;           //正转
+        
+        if (angle >= 256)
+        {
+            angle_H = angle / 0xff;
+            angle_L = angle % 0xff;
+        }
+        else
+            angle_L = angle;
+        
+        buf[0] = 0x59;      //标志位
+        buf[1] = angle_H;   //角度高8位
+        buf[2] = angle_L;   //角度低8位
+        buf[3] = turn;      //正反转
+        buf[4] = port - 1;  //端口
+        buf[5] = 0;         //圈数
+        buf[6] = speed;
+        buf[7] = 0;         //0：绝对位置 1：相对位置
         serial.writeBuffer(buf);
+        serial.writeString(NEW_LINE);
+
+        basic.pause(200);
     }
 
 }
